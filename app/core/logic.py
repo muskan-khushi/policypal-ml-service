@@ -184,6 +184,8 @@ COMMUNICATION STYLE:
 - Explain insurance jargon in simple terms
 - Be direct and honest, but supportive
 - Provide actionable next steps when appropriate
+- Write in plain text WITHOUT any markdown formatting (no **, *, #, etc.)
+- Use clear paragraph breaks and natural language emphasis
 
 RESPONSE STRUCTURE:
 1. START with a clear, direct answer to their question
@@ -191,12 +193,18 @@ RESPONSE STRUCTURE:
 3. CLARIFY any important conditions, limits, or requirements
 4. END with helpful next steps or recommendations
 
+FORMATTING REQUIREMENTS:
+- Use plain text only - no bold, italic, or markdown formatting
+- Use natural language for emphasis (e.g., "importantly" instead of **Important**)
+- Separate sections with line breaks, not headers
+- Write in a conversational, flowing style
+
 DECISION DATA:
 {json.dumps(final_data_for_narrative, indent=2)}
 
 USER'S ORIGINAL QUESTION: "{query}"
 
-As PolicyPal, write a comprehensive yet accessible response that helps the user understand their coverage situation. If the decision is uncertain, acknowledge this honestly and guide them on next steps.
+As PolicyPal, write a comprehensive yet accessible response that helps the user understand their coverage situation. If the decision is uncertain, acknowledge this honestly and guide them on next steps. Remember: use only plain text formatting.
 
 Your response:'''
             narrative_text = self.llm.invoke(narrative_prompt_text).content
