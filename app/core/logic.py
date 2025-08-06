@@ -1,6 +1,7 @@
 import os
 import json
 import tempfile
+import re  # <-- ADD THIS IMPORT
 from io import BytesIO
 from langchain_groq import ChatGroq
 from langchain_cohere import CohereEmbeddings
@@ -28,6 +29,18 @@ class DecisionResponse(BaseModel):
     decision: Optional[str] = "Could Not Determine"
     amount_covered: Optional[float] = 0.0
 
+# --- HELPER FUNCTION TO CLEAN LLM OUTPUT ---
+def extract_json_from_string(text: str) -> Optional[str]:
+    """
+    Finds and extracts the first valid JSON object from a string.
+    Handles cases where the LLM adds conversational text around the JSON.
+    """
+    # Use a regex to find the JSON block, allowing for newlines and spaces
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return match.group(0)
+    return None
+
 class RAGProcessor:
     def __init__(self):
         load_dotenv()
@@ -43,21 +56,17 @@ class RAGProcessor:
         print(">> Fully Cloud RAG Processor Ready.")
     
     def process_document_and_query(self, file_bytes: bytes, query: str) -> FinalResponse:
-        # Create a temporary file on the server's disk to save the PDF
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
             temp_file.write(file_bytes)
-            temp_file_path = temp_file.name  # Get the path of the temporary file
+            temp_file_path = temp_file.name
 
         try:
-            # --- THE FIX ---
-            # Now, give the file PATH to the loader, not the BytesIO object
             loader = PyPDFLoader(temp_file_path)
             documents = loader.load()
             
             if not documents:
                 return FinalResponse(decision="Error", amount_covered=0, justification=[], narrative_response="Could not read the PDF.")
 
-            # The rest of your logic remains unchanged
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=150)
             chunks = text_splitter.split_documents(documents)
             vector_store = Chroma.from_documents(chunks, self.embedding_model)
@@ -74,7 +83,12 @@ class RAGProcessor:
             
             extraction_prompt_text = f'From the CONTEXT below, extract a list of all sentences relevant to the USER\'S QUERY. Your response MUST be a valid JSON object with a single key "quotes", which is a list of strings.\n\nCONTEXT:\n---\n{context}\n---\nUSER\'S QUERY: {query}\n---\nJSON Response:'
             quotes_response_str = self.llm.invoke(extraction_prompt_text).content
-            extracted_justifications = ExtractedQuotes.parse_raw(quotes_response_str).quotes
+            
+            # --- FIX #1: Clean the quotes JSON ---
+            cleaned_quotes_json = extract_json_from_string(quotes_response_str)
+            if not cleaned_quotes_json:
+                 return FinalResponse(decision="Error", amount_covered=0, justification=[], narrative_response="Could not parse justification quotes from AI response.")
+            extracted_justifications = ExtractedQuotes.parse_raw(cleaned_quotes_json).quotes
             
             if not extracted_justifications:
                 return FinalResponse(decision="Could Not Determine", amount_covered=0, justification=[], narrative_response=f"Found general information but no specific clauses for '{query}'.")
@@ -82,7 +96,12 @@ class RAGProcessor:
             quotes_for_decision = "\n".join(extracted_justifications)
             decision_prompt_text = f'Based ONLY on the following policy QUOTES, make a final decision (e.g., "Approved", "Rejected"). Your response MUST be a valid JSON object with the keys "decision" and "amount_covered".\n\nQUOTES:\n---\n{quotes_for_decision}\n---\nUSER\'S QUERY: {query}\n---\nJSON Response:'
             decision_response_str = self.llm.invoke(decision_prompt_text).content
-            json_decision = DecisionResponse.parse_raw(decision_response_str)
+
+            # --- FIX #2: Clean the decision JSON ---
+            cleaned_decision_json = extract_json_from_string(decision_response_str)
+            if not cleaned_decision_json:
+                return FinalResponse(decision="Error", amount_covered=0, justification=[], narrative_response="Could not parse final decision from AI response.")
+            json_decision = DecisionResponse.parse_raw(cleaned_decision_json)
 
             final_data_for_narrative = {"decision": json_decision.decision, "justification_quotes": extracted_justifications}
             narrative_prompt_text = f"You are a friendly support AI. Convert the following data into a gentle, easy-to-understand paragraph.\n\nDATA:\n{json.dumps(final_data_for_narrative, indent=2)}\n---\nYour friendly paragraph:"
@@ -95,7 +114,6 @@ class RAGProcessor:
                 narrative_response=narrative_text.strip()
             )
         finally:
-            # IMPORTANT: Clean up the temporary file from the server's disk
             os.remove(temp_file_path)
 
 rag_processor = RAGProcessor()
