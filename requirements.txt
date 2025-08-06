@@ -1,0 +1,27 @@
+# Core LLM orchestration framework
+langchain
+langchain-community
+langchain-core
+
+# Local LLM and embedding models
+ollama
+sentence-transformers
+
+# PDF document handling
+pypdf
+
+# Data validation and API structure
+pydantic
+
+# Vector database
+chromadb
+
+# Web API server
+fastapi
+uvicorn
+
+# File upload support for FastAPI
+python-multipart
+
+langchain-groq
+python-dotenv
