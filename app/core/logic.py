@@ -28,18 +28,20 @@ class DecisionResponse(BaseModel):
     amount_covered: Optional[float] = 0.0
 
 class RAGProcessor:
+    # This is the corrected __init__ function for your RAGProcessor class
+
     def __init__(self):
-        # Using the ultra-fast Groq cloud service for the main AI reasoning
+        load_dotenv()
         self.llm = ChatGroq(
             temperature=0,
             model_name="llama3-8b-8192",
             groq_api_key=os.environ.get("GROQ_API_KEY")
         )
-        # --- THIS IS THE UPGRADE ---
-        # We are now using the lightweight Cohere cloud service for embeddings.
-        # This will solve the "Out of memory" error on Render.
+        # --- THIS IS THE FIX ---
+        # We are now specifying the exact embedding model to use.
         self.embedding_model = CohereEmbeddings(
-            cohere_api_key=os.environ.get("COHERE_API_KEY")
+            cohere_api_key=os.environ.get("COHERE_API_KEY"),
+            model="embed-english-light-v3.0" 
         )
         # -------------------------
         print(">> Fully Cloud RAG Processor Ready.")
