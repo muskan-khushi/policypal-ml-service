@@ -2,7 +2,7 @@ import os
 import json
 from io import BytesIO
 from langchain_groq import ChatGroq
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_cohere import CohereEmbeddings # --- NEW: Using Cohere for embeddings
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -10,7 +10,7 @@ from typing import Optional, List
 from pydantic.v1 import BaseModel, Field
 from dotenv import load_dotenv
 
-# This line loads the GROQ_API_KEY from your .env file
+# This line loads your .env file for local testing and deployment
 load_dotenv()
 
 # --- Data Models (These are the same as before) ---
@@ -29,20 +29,24 @@ class DecisionResponse(BaseModel):
 
 class RAGProcessor:
     def __init__(self):
-        # --- THIS IS THE UPGRADE ---
-        # We are now using the ultra-fast Groq cloud service with Llama 3
+        # Using the ultra-fast Groq cloud service for the main AI reasoning
         self.llm = ChatGroq(
             temperature=0,
             model_name="llama3-8b-8192",
             groq_api_key=os.environ.get("GROQ_API_KEY")
         )
-        # --- The rest of the setup is the same ---
-        self.embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", model_kwargs={'device': 'cpu'})
-        print(">> Cloud RAG Processor Ready.")
+        # --- THIS IS THE UPGRADE ---
+        # We are now using the lightweight Cohere cloud service for embeddings.
+        # This will solve the "Out of memory" error on Render.
+        self.embedding_model = CohereEmbeddings(
+            cohere_api_key=os.environ.get("COHERE_API_KEY")
+        )
+        # -------------------------
+        print(">> Fully Cloud RAG Processor Ready.")
     
     def process_document_and_query(self, file_bytes: bytes, query: str) -> FinalResponse:
         # This entire function's logic remains the same as your last working version.
-        # It will now just use the much faster and more powerful Groq LLM.
+        # It will now just use the much faster and more powerful cloud services.
         loader = PyPDFLoader(BytesIO(file_bytes))
         documents = loader.load()
         if not documents:

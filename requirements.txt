@@ -5,7 +5,7 @@ langchain-core
 
 # Local LLM and embedding models
 ollama
-sentence-transformers
+langchain-cohere
 
 # PDF document handling
 pypdf
